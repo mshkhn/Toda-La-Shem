@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>החלטות טובות</title>
+    
+    <!-- גופנים -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- תיקון שמונע קריסה של Framer Motion וספריות נוספות בדפדפן -->
+    <script>
+        window.process = { env: { NODE_ENV: 'production' } };
+    </script>
+
+    <!-- ייבוא הספריות בגרסאות תואמות -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.3.1",
+            "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+            "lucide-react": "https://esm.sh/lucide-react@0.372.0?deps=react@18.3.1",
+            "framer-motion": "https://esm.sh/framer-motion@11.1.7?deps=react@18.3.1,react-dom@18.3.1"
+        }
+    }
+    </script>
+    
+    <!-- Babel לקימפול ה-JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Assistant', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import { createRoot } from 'react-dom/client';
+
+        // ==========================================
+        // הקוד שלך בדיוק כמו ששלחת:
+        // ==========================================
+        import React, { useState, useEffect, useRef } from 'react';
+        import { Sparkles, ArrowRight, CheckCircle2, MessageCircle, MapPin, ShieldCheck, Star, Heart, Loader2, AlertCircle } from 'lucide-react';
+        import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxJx87Nb__hJdFz4pEqV3xulKuHDJ8QDVdXL1hS9bdQF_Q6Ed686-zQ1Ey_WEx1oe-XVQ/exec'; 
+
+        const FALLBACK_DECISIONS = [
+          { id: 1, title: 'מודה אני', desc: 'פותחים את היום בתודה לה\' עם אמירת מודה אני לפניך מלך חי וקיים.' },
+          { id: 2, title: 'נטילת ידיים', desc: 'הקפדה על נטילת ידיים מיד לאחר הקימה לטהרת היום.' },
+          { id: 3, title: 'צדקה', desc: 'לתת מטבע לצדקה בכל יום חול.' },
+          { id: 4, title: 'נרות שבת', desc: 'להדליק נר לכבוד שבת וחג (לנשים ובנות).' },
+          { id: 5, title: 'הנחת תפילין', desc: 'הקפדה על הנחת תפילין בכל יום חול (לגברים).' },
+          { id: 6, title: 'ברכות הנהנין', desc: 'לפחות פעם ביום לברך לפני האכילה.' },
+          { id: 7, title: 'כשרות', desc: 'הקפדה על אכילת מוצרים עם כשרות מהודרת.' },
+          { id: 8, title: 'אהבת ישראל', desc: 'לומר מילה טובה למישהו אחר פעם ביום.' }
+        ];
+
+        const COLORS = ['#ff0000', '#ffea00', '#00ff00', '#00e5ff', '#ff00ff', '#ffffff', '#ffa200'];
+
+        const FestiveConfetti = () => {
+          return (
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-visible">
+              {[...Array(40)].map((_, i) => {
+                const angle = (i / 40) * Math.PI * 2;
+                const velocity = Math.random() * 400 + 200;
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
+                    animate={{ 
+                      x: Math.cos(angle) * velocity, 
+                      y: Math.sin(angle) * velocity + 100, 
+                      opacity: 0,
+                      rotate: 720,
+                      scale: Math.random() * 1.5
+                    }}
+                    transition={{ 
+                      duration: Math.random() * 2 + 2, 
+                      repeat: Infinity, 
+                      ease: "easeOut",
+                      delay: Math.random() * 3
+                    }}
+                    className="absolute w-3 h-3 rounded-sm"
+                    style={{ 
+                      backgroundColor: COLORS[i % COLORS.length],
+                      boxShadow: '0 0 10px rgba(255,255,255,0.5)'
+                    }}
+                  />
+                );
+              })}
+            </div>
+          );
+        };
+
+        const getDriveImageUrl = (url) => {
+          if (!url) return '';
+          const id = url.match(/[-\w]{25,}/);
+          return id ? `https://lh3.googleusercontent.com/d/${id[0]}` : url;
+        };
+
+        export default function App() {
+          const [step, setStep] = useState(1);
+          const [resolutions, setResolutions] = useState([]);
+          const [selectedDecision, setSelectedDecision] = useState(null);
+          const [customDecision, setCustomDecision] = useState('');
+          const [formData, setFormData] = useState({ name: '', phone: '', age: '', gender: '' });
+          const [isSubmitting, setIsSubmitting] = useState(false);
+          const [isLoading, setIsLoading] = useState(true);
+          const [phoneError, setPhoneError] = useState(false);
+          
+          const heroRef = useRef(null);
+          const { scrollY } = useScroll();
+
+          const heroScale = useTransform(scrollY, [0, 500], [1, 1.15]);
+          const heroBlur = useTransform(scrollY, [0, 500], [0, 10]);
+          const heroOpacity = useTransform(scrollY, [0, 400], [1, 0.5]);
+
+          useEffect(() => {
+            const fetchResolutions = async () => {
+              try {
+                const response = await fetch(APPS_SCRIPT_URL);
+                if (!response.ok) throw new Error('Network error');
+                const data = await response.json();
+                if (data && data.length > 0) setResolutions(data);
+                else setResolutions(FALLBACK_DECISIONS);
+              } catch (error) {
+                setResolutions(FALLBACK_DECISIONS);
+              } finally {
+                setIsLoading(false);
+              }
+            };
+            fetchResolutions();
+          }, []);
+
+          const validatePhone = (phone) => {
+            const re = /^05\d{8}$/;
+            return re.test(phone.replace(/[-\s]/g, ''));
+          };
+
+          const handlePhoneChange = (e) => {
+            const val = e.target.value;
+            setFormData({...formData, phone: val});
+            if (val.length >= 10) {
+              setPhoneError(!validatePhone(val));
+            } else {
+              setPhoneError(false);
+            }
+          };
+
+          const handleDecisionSelect = (decision) => {
+            setSelectedDecision(decision);
+            setStep(2);
+            window.scrollTo({ top: 400, behavior: 'smooth' });
+          };
+
+          const handleReset = () => {
+            setStep(1);
+            setSelectedDecision(null);
+            setCustomDecision('');
+            setFormData({ name: '', phone: '', age: '', gender: '' });
+            setPhoneError(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          };
+
+          const handleSubmit = (e) => {
+            e.preventDefault();
+            
+            if (!validatePhone(formData.phone)) {
+              setPhoneError(true);
+              return;
+            }
+
+            setIsSubmitting(true);
+            
+            const decisionText = selectedDecision === 'custom' ? customDecision : (selectedDecision.title || selectedDecision);
+            
+            const params = new URLSearchParams();
+            params.append('userName', formData.name);
+            params.append('userPhone', formData.phone);
+            params.append('resolutionType', decisionText); 
+            params.append('userAge', formData.age);        
+            params.append('userGender', formData.gender || "לא צוין");  
+
+            fetch(`${APPS_SCRIPT_URL}?${params.toString()}`, {
+              method: 'POST',
+              mode: 'no-cors'
+            })
+            .then(() => {
+              setIsSubmitting(false);
+              setStep(3);
+            })
+            .catch(err => {
+              console.error('Submission error', err);
+              setIsSubmitting(false);
+              setStep(3);
+            });
+          };
+
+          const whatsappUrl = `https://wa.me/972526877049?text=${encodeURIComponent('שלום, הגעתי דרך דף ההחלטות הטובות.')}`;
+
+          return (
+            <div className="min-h-screen bg-[#FDFDFD] font-['Assistant'] text-slate-900 selection:bg-orange-100 flex flex-col overflow-x-hidden" dir="rtl">
+              
+              <div className="fixed top-2 right-4 text-[10px] font-bold text-slate-400 z-[100] drop-shadow-sm">ב"ה</div>
+
+              <section ref={heroRef} className="relative h-[70vh] md:h-[85vh] w-full overflow-hidden flex items-center justify-center">
+                <motion.div 
+                  style={{ 
+                    scale: heroScale, 
+                    filter: `blur(${heroBlur}px)`,
+                    opacity: heroOpacity
+                  }}
+                  className="absolute inset-0 w-full h-full"
+                >
+                  <img 
+                    src={getDriveImageUrl("https://drive.google.com/file/d/1EOwd694w2iTzuzYgpC-w1TG_JsqpbPcA/view?usp=sharing")}
+                    className="w-full h-full object-cover"
+                    alt="Hero Background"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#FDFDFD] via-transparent to-black/40" />
+                </motion.div>
+
+                <FestiveConfetti />
+
+                <div className="relative z-10 text-center px-6 -mt-10">
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 1 }}
+                  >
+                    <motion.div 
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.2, duration: 0.8 }}
+                      className="inline-flex items-center gap-2 bg-white/95 backdrop-blur px-6 py-2.5 rounded-full text-sm font-black mb-10 tracking-wide shadow-2xl border border-orange-200 text-orange-600"
+                    >
+                      <Star className="w-4 h-4 fill-orange-500 animate-pulse" />
+                      לכבוד התנא האלוקי רבי שמעון בר יוחאי • תשפ"ו
+                    </motion.div>
+                    
+                    <div className="relative mb-8">
+                      <motion.div 
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="mb-2 text-2xl md:text-3xl font-black text-slate-800 drop-shadow-md"
+                      >
+                        מודים לה' על הניסים –
+                      </motion.div>
+                      <motion.h1 
+                        initial={{ scale: 0.85 }}
+                        animate={{ scale: [0.85, 1.05, 1] }}
+                        transition={{ duration: 1.2, ease: "easeOut" }}
+                        className="text-6xl md:text-8xl font-[900] mb-4 leading-tight tracking-tighter text-slate-900 drop-shadow-2xl"
+                      >
+                        <span className="relative inline-block overflow-hidden pb-3">
+                          מקבלים החלטה טובה
+                          <motion.span 
+                            animate={{ left: ['-100%', '200%'] }}
+                            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", repeatDelay: 0.5 }}
+                            className="absolute top-0 h-full w-48 bg-gradient-to-r from-transparent via-white/80 to-transparent -skew-x-12 pointer-events-none"
+                          />
+                        </span>
+                      </motion.h1>
+                      
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.8 }}
+                        className="inline-block px-8 py-2 bg-slate-900/5 backdrop-blur-sm rounded-full border border-slate-900/10"
+                      >
+                        <p className="text-slate-800 text-xl md:text-2xl font-black drop-shadow-sm">
+                          מוסיפים באור ומקרבים את הגאולה
+                        </p>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                </div>
+              </section>
+
+              <main className="max-w-3xl mx-auto px-6 pb-20 -mt-24 relative z-20 w-full">
+                <AnimatePresence mode="wait">
+                  {step === 1 && (
+                    <motion.div key="step1" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-12">
+                      
+                      <div className="text-center pt-8">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="flex flex-col items-center gap-2">
+                          <div className="h-1 w-12 bg-orange-500 rounded-full mb-2" />
+                          <p className="text-2xl text-slate-800 font-[900] tracking-tight">בחרו את הדרך שלכם להוסיף באור:</p>
+                        </motion.div>
+                      </div>
+
+                      {isLoading ? (
+                        <div className="flex flex-col items-center py-20 gap-4">
+                          <Loader2 className="w-12 h-12 text-orange-500 animate-spin" />
+                          <p className="font-bold text-slate-400">טוען החלטות...</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-6">
+                          {resolutions.map((item, idx) => (
+                            <motion.div
+                              key={idx}
+                              whileHover={{ y: -8, scale: 1.03, boxShadow: '0 30px 40px -15px rgb(0 0 0 / 0.15)' }}
+                              onClick={() => handleDecisionSelect(item)}
+                              className="bg-white border border-slate-100 p-7 rounded-[2.5rem] cursor-pointer transition-all flex items-center justify-between group shadow-xl active:scale-[0.98]"
+                            >
+                              <div className="flex items-center gap-6 text-right">
+                                <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-all duration-300 shadow-inner shrink-0">
+                                  {item.icon ? (
+                                     <span className="text-3xl">{item.icon}</span>
+                                  ) : (
+                                     <Sparkles className="w-8 h-8 text-orange-500 group-hover:text-white" />
+                                  )}
+                                </div>
+                                <div>
+                                  <h3 className="font-[900] text-2xl text-slate-800 leading-none mb-2">{item.title}</h3>
+                                  <p className="text-sm text-slate-500 font-medium leading-relaxed">{item.desc || item.description}</p>
+                                </div>
+                              </div>
+                              <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-orange-100 transition-colors shrink-0">
+                                  <ArrowRight className="w-6 h-6 text-slate-300 group-hover:text-orange-600 transition-all rotate-180" />
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="bg-slate-900 rounded-[3.5rem] p-12 text-white shadow-2xl relative overflow-hidden group">
+                        <div className="absolute -top-10 -right-10 opacity-10 group-hover:scale-110 transition-transform duration-1000">
+                          <ShieldCheck className="w-80 h-80" />
+                        </div>
+                        <div className="relative z-10 mb-6 text-right">
+                          <h3 className="text-3xl font-[900] flex items-center gap-3 mb-2 justify-start">
+                            <Star className="text-orange-500 w-8 h-8 fill-orange-500" />
+                            החלטה טובה משלכם
+                          </h3>
+                          <p className="text-white/60 text-lg font-bold pr-11">
+                            לא מצאתם משהו שמתאים לכם למעלה? כתבו כאן כל החלטה טובה אחרת שתרצו לקבל.
+                          </p>
+                        </div>
+                        <textarea
+                          placeholder="למשל: לבקר חבר חולה, לתת צדקה בכל יום..."
+                          value={customDecision}
+                          onChange={(e) => setCustomDecision(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-xl text-white placeholder:text-white/30 focus:outline-none focus:border-orange-500 focus:bg-white/10 min-h-[160px] transition-all mb-8 relative z-10 backdrop-blur-sm text-right"
+                        />
+                        <button
+                          disabled={!customDecision.trim()}
+                          onClick={() => handleDecisionSelect('custom')}
+                          className="w-full bg-orange-500 hover:bg-orange-400 text-white py-6 rounded-2xl font-[900] text-2xl flex items-center justify-center gap-3 disabled:opacity-30 transition-all shadow-xl relative z-10 active:scale-95"
+                        >
+                          אני מקבל/ת על עצמי
+                          <ArrowRight className="w-7 h-7 rotate-180" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {step === 2 && (
+                    <motion.div key="step2" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white border border-slate-100 p-8 md:p-14 rounded-[3.5rem] shadow-2xl">
+                      <button onClick={() => setStep(1)} className="text-slate-400 font-bold flex items-center gap-2 hover:text-orange-500 mb-10 transition-colors">
+                        <ArrowRight className="w-5 h-5" /> חזרה לבחירה
+                      </button>
+                      
+                      <div className="mb-12">
+                        <h2 className="text-4xl font-[900] text-slate-800 mb-4 tracking-tight text-right">פרטים לכרטיס הגרלה שלכם</h2>
+                        <div className="h-2 w-20 bg-orange-500 rounded-full mb-8 mr-0 ml-auto" />
+                        <div className="p-8 bg-orange-50 rounded-[2.5rem] border-r-8 border-orange-500 shadow-inner text-right">
+                           <p className="text-orange-900 font-[900] text-3xl leading-snug">
+                            {selectedDecision === 'custom' ? customDecision : (selectedDecision.title || selectedDecision)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <form onSubmit={handleSubmit} className="space-y-8">
+                        <div className="grid md:grid-cols-2 gap-8 text-right">
+                          <div className="space-y-3">
+                            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">שם מלא</label>
+                            <input required type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 focus:border-orange-500 focus:bg-white transition-all outline-none font-bold text-xl text-right" placeholder="ישראל ישראלי" />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">טלפון (נייד)</label>
+                            <div className="relative">
+                              <input 
+                                required 
+                                type="tel" 
+                                value={formData.phone} 
+                                onChange={handlePhoneChange} 
+                                className={`w-full p-5 bg-slate-50 rounded-2xl border transition-all outline-none font-bold text-xl text-right ${phoneError ? 'border-red-500 bg-red-50' : 'border-slate-200 focus:border-orange-500 focus:bg-white'}`} 
+                                placeholder="0500000000" 
+                              />
+                              {phoneError && (
+                                <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-1 mt-2 text-red-600 font-bold text-sm">
+                                  <AlertCircle className="w-4 h-4" />
+                                  יש להזין מספר טלפון תקין (10 ספרות, מתחיל ב-05)
+                                </motion.div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">גיל</label>
+                            <input required type="number" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 focus:border-orange-500 focus:bg-white transition-all outline-none font-bold text-xl text-right" placeholder="גיל" />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest italic opacity-70">מין (רשות)</label>
+                            <select value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})} className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 focus:border-orange-500 focus:bg-white transition-all outline-none font-bold text-xl appearance-none cursor-pointer text-right">
+                              <option value="">בחר/י (לא חובה)</option>
+                              <option value="זכר">זכר</option>
+                              <option value="נקבה">נקבה</option>
+                            </select>
+                          </div>
+                        </div>
+                        <button 
+                          disabled={isSubmitting || phoneError} 
+                          className={`w-full py-6 rounded-2xl font-[900] text-2xl transition-all shadow-2xl active:scale-[0.98] flex items-center justify-center gap-3 mt-4 ${phoneError ? 'bg-slate-300 cursor-not-allowed text-slate-500' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                        >
+                          {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : phoneError ? "מספר טלפון לא תקין" : "שלחו את ההחלטה!"}
+                        </button>
+                      </form>
+                    </motion.div>
+                  )}
+
+                  {step === 3 && (
+                    <motion.div key="step3" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-12 md:p-20 rounded-[4rem] shadow-2xl text-center border-b-[12px] border-orange-500 overflow-hidden relative">
+                      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500" />
+                      <FestiveConfetti />
+                      
+                      <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 3, repeat: Infinity }} className="w-32 h-32 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-10 border-4 border-white shadow-xl relative z-10">
+                        <CheckCircle2 className="w-16 h-16 text-green-500" />
+                      </motion.div>
+
+                      <h1 className="text-5xl font-[900] text-slate-900 mb-6 relative z-10">אשריכם ישראל!</h1>
+                      
+                      <div className="space-y-4 mb-12 relative z-10">
+                        <p className="text-2xl text-slate-600 font-bold">ההחלטה התקבלה בהצלחה!</p>
+                        <div className="bg-orange-50 p-6 rounded-3xl border border-orange-200 inline-block">
+                           <p className="text-orange-800 text-3xl font-[900]">שמכם נשלח להגרלה!</p>
+                        </div>
+                      </div>
+
+                      <button onClick={handleReset} className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-[900] text-xl hover:bg-orange-500 transition-all shadow-xl active:scale-95 relative z-10">
+                        קבלת החלטה נוספת
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </main>
+
+              <footer className="bg-white border-t border-slate-100 py-16 px-6 mt-auto text-center">
+                <div className="max-w-6xl mx-auto flex flex-col items-center gap-8">
+                  <img src={getDriveImageUrl("https://drive.google.com/file/d/1EfEh7vSF5JS1N1D5-ug1DqKwoozZDkJZ/view?usp=sharing")} className="h-28 object-contain" alt="Logo" />
+                  <div>
+                    <h4 className="text-slate-800 font-[900] text-2xl mb-1">בית חב"ד רמת מנחם בגין</h4>
+                    <p className="text-slate-400 font-bold flex items-center justify-center gap-2 text-lg">
+                      <MapPin className="w-5 h-5 text-orange-500" /> צפת עיר הקודש
+                    </p>
+                  </div>
+                  <p className="text-slate-800 font-[900] text-2xl md:text-3xl tracking-tight mb-4 leading-relaxed">
+                    יחי אדוננו מורנו ורבינו מלך המשיח לעולם ועד!
+                  </p>
+                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="bg-[#25D366] text-white px-10 py-5 rounded-3xl font-[900] text-xl flex items-center gap-4 hover:scale-105 transition-all shadow-lg">
+                    <MessageCircle className="w-7 h-7" /> דברו איתנו בווצאפ
+                  </a>
+                </div>
+              </footer>
+            </div>
+          );
+        }
+
+        // רינדור המסך
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
