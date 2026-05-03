@@ -48,7 +48,7 @@
         import { createRoot } from 'react-dom/client';
 
         // ==========================================
-        // הקוד שלך בדיוק כמו ששלחת:
+        // קוד ה-React
         // ==========================================
         import React, { useState, useEffect, useRef } from 'react';
         import { Sparkles, ArrowRight, CheckCircle2, MessageCircle, MapPin, ShieldCheck, Star, Heart, Loader2, AlertCircle } from 'lucide-react';
@@ -115,7 +115,8 @@
           const [resolutions, setResolutions] = useState([]);
           const [selectedDecision, setSelectedDecision] = useState(null);
           const [customDecision, setCustomDecision] = useState('');
-          const [formData, setFormData] = useState({ name: '', phone: '', age: '', gender: '' });
+          // הוסרו הגיל והמין מה-State
+          const [formData, setFormData] = useState({ name: '', phone: '' });
           const [isSubmitting, setIsSubmitting] = useState(false);
           const [isLoading, setIsLoading] = useState(true);
           const [phoneError, setPhoneError] = useState(false);
@@ -169,7 +170,7 @@
             setStep(1);
             setSelectedDecision(null);
             setCustomDecision('');
-            setFormData({ name: '', phone: '', age: '', gender: '' });
+            setFormData({ name: '', phone: '' }); // איפוס השדות בלבד
             setPhoneError(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           };
@@ -190,8 +191,9 @@
             params.append('userName', formData.name);
             params.append('userPhone', formData.phone);
             params.append('resolutionType', decisionText); 
-            params.append('userAge', formData.age);        
-            params.append('userGender', formData.gender || "לא צוין");  
+            // נשלח ערכים ריקים לגיל ומין כדי שהסקריפט בגוגל שיטס לא יישבר אם הוא מצפה להם
+            params.append('userAge', "");        
+            params.append('userGender', "");  
 
             fetch(`${APPS_SCRIPT_URL}?${params.toString()}`, {
               method: 'POST',
@@ -385,6 +387,7 @@
                       </div>
 
                       <form onSubmit={handleSubmit} className="space-y-8">
+                        {/* השארנו את ה-Grid כדי שהשם והטלפון יופיעו אחד ליד השני במסכים רחבים */}
                         <div className="grid md:grid-cols-2 gap-8 text-right">
                           <div className="space-y-3">
                             <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">שם מלא</label>
@@ -408,18 +411,6 @@
                                 </motion.div>
                               )}
                             </div>
-                          </div>
-                          <div className="space-y-3">
-                            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">גיל</label>
-                            <input required type="number" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 focus:border-orange-500 focus:bg-white transition-all outline-none font-bold text-xl text-right" placeholder="גיל" />
-                          </div>
-                          <div className="space-y-3">
-                            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest italic opacity-70">מין (רשות)</label>
-                            <select value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})} className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 focus:border-orange-500 focus:bg-white transition-all outline-none font-bold text-xl appearance-none cursor-pointer text-right">
-                              <option value="">בחר/י (לא חובה)</option>
-                              <option value="זכר">זכר</option>
-                              <option value="נקבה">נקבה</option>
-                            </select>
                           </div>
                         </div>
                         <button 
